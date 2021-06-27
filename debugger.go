@@ -43,8 +43,7 @@ type Debugger struct {
 	currentLine            int
 	lastLines              []int
 	breakpoints            []Breakpoint
-	Input                  Command
-	Output                 Result
+	ch                     chan struct{}
 }
 
 type Result struct {

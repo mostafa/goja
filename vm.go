@@ -420,38 +420,37 @@ func (vm *vm) run() {
 	}
 }
 
-func (vm *vm) runDebug() {
+func (vm *vm) debug() {
 	vm.halt = false
 	interrupted := false
 	ticks := 0
 	// TODO: WE SHOULD WAIT HERE FOR FIRST COMMAND
-	dbg := NewDebugger(vm)
 
 	for !vm.halt {
 		if interrupted = atomic.LoadUint32(&vm.interrupted) != 0; interrupted {
 			break
 		}
 
-		if dbg.isDebuggerStatement() || dbg.isNextDebuggerStatement() || dbg.isBreakpoint() {
-			lastLine := dbg.Line()
-			dbg.updateCurrentLine()
-			if dbg.lastDebuggerCommand() != Next {
-				// dbg.REPL(dbg, false)
+		if vm.debugger.isDebuggerStatement() || vm.debugger.isNextDebuggerStatement() || vm.debugger.isBreakpoint() {
+			lastLine := vm.debugger.Line()
+			vm.debugger.updateCurrentLine()
+			if vm.debugger.lastDebuggerCommand() != Next {
+				// vm.debugger.REPL(dbg, false)
 				// TODO: wait for command
 			}
 			vm.prg.code[vm.pc].exec(vm)
-			dbg.updateLastLine(lastLine)
-		} else if dbg.lastDebuggerCommand() != Empty {
-			switch dbg.lastDebuggerCommand() {
+			vm.debugger.updateLastLine(lastLine)
+		} else if vm.debugger.lastDebuggerCommand() != Empty {
+			switch vm.debugger.lastDebuggerCommand() {
 			case Continue:
-				dbg.Continue()
+				vm.debugger.Continue()
 				ticks++
 			case Next:
 				// FIXME: jumping lines on next command
-				dbg.Next()
+				vm.debugger.Next()
 				ticks++
 			case Exec:
-				result := dbg.Exec(strings.Join(dbg.lastDebuggerCommandArgs(), ";"))
+				result := vm.debugger.Exec(strings.Join(vm.debugger.lastDebuggerCommandArgs(), ";"))
 				if result.Err != nil {
 					fmt.Println(result.Err)
 				}
