@@ -424,8 +424,8 @@ func (vm *vm) runDebug() {
 	vm.halt = false
 	interrupted := false
 	ticks := 0
+	// TODO: WE SHOULD WAIT HERE FOR FIRST COMMAND
 	dbg := NewDebugger(vm)
-	dbg.REPL(true)
 
 	for !vm.halt {
 		if interrupted = atomic.LoadUint32(&vm.interrupted) != 0; interrupted {
@@ -433,10 +433,11 @@ func (vm *vm) runDebug() {
 		}
 
 		if dbg.isDebuggerStatement() || dbg.isNextDebuggerStatement() || dbg.isBreakpoint() {
-			lastLine := dbg.getCurrentLine()
+			lastLine := dbg.Line()
 			dbg.updateCurrentLine()
 			if dbg.lastDebuggerCommand() != Next {
-				dbg.REPL(false)
+				// dbg.REPL(dbg, false)
+				// TODO: wait for command
 			}
 			vm.prg.code[vm.pc].exec(vm)
 			dbg.updateLastLine(lastLine)
