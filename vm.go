@@ -5,7 +5,6 @@ import (
 	"math"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -431,32 +430,16 @@ func (vm *vm) debug() {
 			break
 		}
 
-		if vm.debugger.isDebuggerStatement() || vm.debugger.isNextDebuggerStatement() || vm.debugger.isBreakpoint() {
+		if vm.debugger != nil && vm.debugger.isBreakpoint() {
 			lastLine := vm.debugger.Line()
 			vm.debugger.updateCurrentLine()
-			if vm.debugger.lastDebuggerCommand() != Next {
+			if vm.debugger.lastDebuggerCommand() != "n" {
 				// vm.debugger.REPL(dbg, false)
 				// TODO: wait for command
+				// cmd = <-vm.debugger.input
 			}
 			vm.prg.code[vm.pc].exec(vm)
 			vm.debugger.updateLastLine(lastLine)
-		} else if vm.debugger.lastDebuggerCommand() != Empty {
-			switch vm.debugger.lastDebuggerCommand() {
-			case Continue:
-				vm.debugger.Continue()
-				ticks++
-			case Next:
-				// FIXME: jumping lines on next command
-				vm.debugger.Next()
-				ticks++
-			case Exec:
-				result := vm.debugger.Exec(strings.Join(vm.debugger.lastDebuggerCommandArgs(), ";"))
-				if result.Err != nil {
-					fmt.Println(result.Err)
-				}
-			default:
-				vm.prg.code[vm.pc].exec(vm)
-			}
 		} else {
 			vm.prg.code[vm.pc].exec(vm)
 		}
@@ -581,7 +564,11 @@ func (vm *vm) try(f func()) (ex *Exception) {
 }
 
 func (vm *vm) runTry() (ex *Exception) {
-	return vm.try(vm.run)
+	if vm.debugMode {
+		return vm.try(vm.debug)
+	} else {
+		return vm.try(vm.run)
+	}
 }
 
 func (vm *vm) push(v Value) {
@@ -1295,11 +1282,11 @@ var debugger _debugger
 
 func (_debugger) exec(vm *vm) {
 	vm.pc++
-	if vm.debugMode {
+	if vm.debugMode && (vm.debugger == nil || vm.debugger.notActive) {
 		vm.debugger = NewDebugger(vm)
 		vm.debugCh <- vm.debugger
 		vm.debugger.wait()
-		vm.debugger = nil
+		// vm.debugger = nil // can't do that because of breakpoints
 	}
 }
 

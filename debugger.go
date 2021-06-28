@@ -4,35 +4,10 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/dop251/goja/parser"
 	"github.com/dop251/goja/unistring"
-)
-
-const (
-	SetBreakpoint   = "sb"
-	ClearBreakpoint = "cb"
-	Breakpoints     = "breakpoints"
-	Next            = "n"
-	Continue        = "c"
-	StepIn          = "s"
-	StepOut         = "o"
-	Exec            = "e"
-	Print           = "p"
-	List            = "l"
-	Help            = "h"
-	Quit            = "q"
-	Empty           = ""
-	NewLine         = "\n"
-)
-
-const (
-	GreenColor = "\u001b[32m"
-	GrayColor  = "\u001b[38;5;245m"
-	ResetColor = "\u001b[0m"
 )
 
 type Debugger struct {
@@ -44,6 +19,7 @@ type Debugger struct {
 	lastLines              []int
 	breakpoints            []Breakpoint
 	ch                     chan struct{}
+	notActive              bool
 }
 
 type Result struct {
@@ -53,11 +29,18 @@ type Result struct {
 
 func NewDebugger(vm *vm) *Debugger {
 	dbg := &Debugger{
-		vm: vm,
-		ch: make(chan struct{}),
+		vm:        vm,
+		ch:        make(chan struct{}),
+		notActive: false,
 	}
 	dbg.lastLines = append(dbg.lastLines, 0)
 	return dbg
+}
+
+// TODO do this possibly with a single field
+func (dbg *Debugger) reactivate() {
+	dbg.ch = make(chan struct{})
+	dbg.notActive = true
 }
 
 type Breakpoint struct {
@@ -147,20 +130,10 @@ func (dbg *Debugger) List() Result {
 	return cmd.execute(dbg)
 }
 
-func (dbg *Debugger) Help() Result {
-	cmd := HelpCommand{}
-	return cmd.execute(dbg)
-}
-
-func (dbg *Debugger) Quit(exitCode int) Result {
-	cmd := QuitCommand{exitCode: exitCode}
-	return cmd.execute(dbg)
-}
-
 // Wait returns when the debugger is done debugging
 func (dbg *Debugger) wait() {
 	<-dbg.ch // TODO better
-	return
+	dbg.notActive = true
 }
 
 type Command interface {
@@ -263,46 +236,9 @@ func (p *PrintCommand) execute(dbg *Debugger) Result {
 type ListCommand struct{}
 
 func (*ListCommand) execute(dbg *Debugger) Result {
-	val, err := dbg.listSource()
+	// TODO probably better to get only some of the lines, but fine for now
+	val, err := StringToLines(dbg.vm.prg.src.Source())
 	return Result{Value: val, Err: err}
-}
-
-type HelpCommand struct{}
-
-func (*HelpCommand) execute(dbg *Debugger) Result {
-	var builder strings.Builder
-	writer := tabwriter.NewWriter(&builder, 0, 0, 3, ' ', 0)
-
-	help := []string{
-		"setBreakpoint, sb\tSet a breakpoint on a given file and line",
-		"clearBreakpoint, cb\tClear a breakpoint on a given file and line",
-		"breakpoints\tList all known breakpoints",
-		"next, n\tContinue to next line in current file",
-		"cont, c\tResume execution until next debugger line",
-		"step, s\tStep into, potentially entering a function (not implemented yet)",
-		"out, o\tStep out, leaving the current function (not implemented yet)",
-		"exec, e\tEvaluate the expression and print the value",
-		"list, l\tPrint the source around the current line where execution is currently paused",
-		"print, p\tPrint the provided variable's value",
-		"help, h\tPrint this very help message",
-		"quit, q\tExit debugger and quit (Ctrl+C)",
-	}
-
-	for _, value := range help {
-		fmt.Fprintln(writer, value)
-	}
-
-	writer.Flush()
-	return Result{Value: builder.String(), Err: nil}
-}
-
-type QuitCommand struct {
-	exitCode int
-}
-
-func (q *QuitCommand) execute(dbg *Debugger) Result {
-	os.Exit(q.exitCode)
-	return Result{Value: nil, Err: nil}
 }
 
 type (
@@ -317,22 +253,6 @@ func StringToLines(s string) (lines []string, err error) {
 	}
 	err = scanner.Err()
 	return
-}
-
-func CountDigits(number int) int {
-	if number < 10 {
-		return 1
-	} else {
-		return 1 + CountDigits(number/10)
-	}
-}
-
-func InBetween(i, min, max int) bool {
-	if (i >= min) && (i <= max) {
-		return true
-	} else {
-		return false
-	}
 }
 
 func (dbg *Debugger) isDebuggerStatement() bool {
@@ -361,7 +281,7 @@ func (dbg *Debugger) lastDebuggerCommand() string {
 		return dbg.LastDebuggerCmdAndArgs[0]
 	}
 
-	return Empty
+	return ""
 }
 
 func (dbg *Debugger) lastDebuggerCommandArgs() []string {
@@ -413,32 +333,6 @@ func (dbg *Debugger) getNextLine() int {
 
 func (dbg *Debugger) isSafeToRun() bool {
 	return dbg.vm.pc < len(dbg.vm.prg.code)
-}
-
-func (dbg *Debugger) listSource() (string, error) {
-	lines, err := StringToLines(dbg.vm.prg.src.Source())
-	currentLine := dbg.Line()
-	lineIndex := currentLine - 1
-	var builder strings.Builder
-	for idx, lineContents := range lines {
-		if InBetween(lineIndex, idx-4, idx+4) {
-			lineNumber := idx + 1
-			totalPadding := 6
-			digitCount := CountDigits(lineNumber)
-			if digitCount >= totalPadding {
-				totalPadding = digitCount + 1
-			}
-			if currentLine == lineNumber {
-				padding := strings.Repeat(" ", totalPadding-digitCount)
-				builder.Write([]byte(fmt.Sprintf("%s>%s %d%s%s\n", GreenColor, ResetColor, currentLine, padding, lines[lineIndex])))
-			} else {
-				padding := strings.Repeat(" ", totalPadding-digitCount)
-				builder.Write([]byte(fmt.Sprintf("%s  %d%s%s%s\n", GrayColor, lineNumber, padding, lineContents, ResetColor)))
-			}
-		}
-	}
-
-	return builder.String(), err
 }
 
 func (dbg *Debugger) eval(expr string) (Value, error) {
