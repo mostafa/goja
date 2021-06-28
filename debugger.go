@@ -40,6 +40,7 @@ const (
 type Debugger struct {
 	vm *vm
 
+	ch                     chan struct{}
 	lastDebuggerCmdAndArgs []string
 	debuggerExec           bool
 	currentLine            int
@@ -55,6 +56,7 @@ type Result struct {
 func NewDebugger(vm *vm) *Debugger {
 	dbg := &Debugger{
 		vm: vm,
+		ch: make(chan struct{}),
 	}
 	dbg.lastLines = append(dbg.lastLines, 0)
 	return dbg
@@ -63,11 +65,6 @@ func NewDebugger(vm *vm) *Debugger {
 type Breakpoint struct {
 	Filename string
 	Line     int
-}
-
-func (d *Debugger) Wait() *Breakpoint {
-	// TODO: implement this
-	return &Breakpoint{}
 }
 
 func (dbg *Debugger) SetBreakpoint(fileName string, line int) error {
@@ -113,6 +110,7 @@ func (dbg *Debugger) Next() Result {
 }
 
 func (dbg *Debugger) Continue() Result {
+	defer close(dbg.ch)
 	cmd := ContinueCommand{}
 	return cmd.execute(dbg)
 }
@@ -150,6 +148,12 @@ func (dbg *Debugger) Help() Result {
 func (dbg *Debugger) Quit(exitCode int) Result {
 	cmd := QuitCommand{exitCode: exitCode}
 	return cmd.execute(dbg)
+}
+
+// Wait returns when the debugger is done debugging
+func (dbg *Debugger) wait() {
+	<-dbg.ch // TODO better
+	return
 }
 
 type Command interface {
@@ -291,8 +295,10 @@ func (q *QuitCommand) execute(dbg *Debugger) Result {
 	return Result{Value: nil, Err: nil}
 }
 
-type EmptyCommand struct{}
-type NewLineCommand struct{}
+type (
+	EmptyCommand   struct{}
+	NewLineCommand struct{}
+)
 
 func StringToLines(s string) (lines []string, err error) {
 	scanner := bufio.NewScanner(strings.NewReader(s))
@@ -639,6 +645,7 @@ func (dbg *Debugger) REPL(intro bool) {
 					}
 				}
 			case Next:
+				// This will need to change?
 				return
 			case Continue:
 				return

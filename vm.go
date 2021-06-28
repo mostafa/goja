@@ -157,7 +157,9 @@ type vm struct {
 	interruptVal  interface{}
 	interruptLock sync.Mutex
 
-	debugger *Debugger
+	debugger  *Debugger
+	debugMode bool
+	debugCh   chan *Debugger
 }
 
 type instruction interface {
@@ -579,11 +581,7 @@ func (vm *vm) try(f func()) (ex *Exception) {
 }
 
 func (vm *vm) runTry() (ex *Exception) {
-	if vm.r.debugMode {
-		return vm.try(vm.runDebug)
-	} else {
-		return vm.try(vm.run)
-	}
+	return vm.try(vm.run)
 }
 
 func (vm *vm) push(v Value) {
@@ -1297,6 +1295,13 @@ var debugger _debugger
 
 func (_debugger) exec(vm *vm) {
 	vm.pc++
+	if vm.debugMode {
+		vm.debugger = NewDebugger(vm)
+		vm.debugCh <- vm.debugger
+		close(vm.debugCh)
+		vm.debugger.wait()
+		vm.debugger = nil
+	}
 }
 
 type jump int32
@@ -2971,7 +2976,6 @@ end:
 		return valueTrue
 	}
 	return valueFalse
-
 }
 
 type _op_lt struct{}
