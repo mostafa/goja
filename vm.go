@@ -1298,7 +1298,6 @@ func (_debugger) exec(vm *vm) {
 	if vm.debugMode {
 		vm.debugger = NewDebugger(vm)
 		vm.debugCh <- vm.debugger
-		close(vm.debugCh)
 		vm.debugger.wait()
 		vm.debugger = nil
 	}
