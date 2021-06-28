@@ -1088,10 +1088,10 @@ func New() *Runtime {
 	return r
 }
 
-func (r *Runtime) EnableDebugMode() <-chan *Debugger {
+func (r *Runtime) EnableDebugMode() *Debugger {
 	r.vm.debugMode = true
-	r.vm.debugCh = make(chan *Debugger)
-	return r.vm.debugCh
+	r.vm.debugger = NewDebugger(r.vm)
+	return r.vm.debugger
 }
 
 // Compile creates an internal representation of the JavaScript code that can be later run using the Runtime.RunProgram()

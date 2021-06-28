@@ -18,7 +18,7 @@ type Debugger struct {
 	currentLine            int
 	lastLines              []int
 	breakpoints            []Breakpoint
-	ch                     chan struct{}
+	activationCh           chan chan string
 	notActive              bool
 }
 
@@ -29,18 +29,31 @@ type Result struct {
 
 func NewDebugger(vm *vm) *Debugger {
 	dbg := &Debugger{
-		vm:        vm,
-		ch:        make(chan struct{}),
-		notActive: false,
+		vm:           vm,
+		activationCh: make(chan chan string),
+		notActive:    true,
 	}
 	dbg.lastLines = append(dbg.lastLines, 0)
 	return dbg
 }
 
-// TODO do this possibly with a single field
-func (dbg *Debugger) reactivate() {
-	dbg.ch = make(chan struct{})
-	dbg.notActive = true
+const ( // TODO constants enum
+	BreakpointActivation        string = "b"
+	DebuggerStatementActivation        = "d"
+)
+
+func (dbg *Debugger) activate(s string) {
+	ch := <-dbg.activationCh // get channel from waiter
+	ch <- s                  // send what activated it
+	<-ch                     // wait for deactivation
+}
+
+// WaitToActivate  returns what activated debugger and a function to deactivate it resume normal execution/continue
+func (dbg *Debugger) WaitToActivate() (string, func()) {
+	ch := make(chan string)
+	dbg.activationCh <- ch
+	r := <-ch
+	return r, func() { close(ch) }
 }
 
 type Breakpoint struct {
@@ -100,7 +113,6 @@ func (dbg *Debugger) Next() Result {
 }
 
 func (dbg *Debugger) Continue() Result {
-	defer close(dbg.ch)
 	cmd := ContinueCommand{}
 	return cmd.execute(dbg)
 }
@@ -128,12 +140,6 @@ func (dbg *Debugger) Print(varName string) Result {
 func (dbg *Debugger) List() Result {
 	cmd := ListCommand{}
 	return cmd.execute(dbg)
-}
-
-// Wait returns when the debugger is done debugging
-func (dbg *Debugger) wait() {
-	<-dbg.ch // TODO better
-	dbg.notActive = true
 }
 
 type Command interface {
@@ -268,7 +274,7 @@ func (dbg *Debugger) isBreakpoint() bool {
 	currentFilename := dbg.Filename()
 
 	b := Breakpoint{Filename: currentFilename, Line: currentLine}
-	for _, elem := range dbg.breakpoints {
+	for _, elem := range dbg.breakpoints { // TODO have them as map of files to breakpoint list
 		if elem == b {
 			return true
 		}
@@ -308,13 +314,11 @@ func (dbg *Debugger) updateLastLine(lineNumber int) {
 
 func (dbg *Debugger) Line() int {
 	// FIXME: Some lines are skipped, which causes this function to report incorrect lines
-	currentLine := dbg.vm.prg.src.Position(dbg.vm.prg.sourceOffset(dbg.vm.pc)).Line
-	return currentLine
+	return dbg.vm.prg.src.Position(dbg.vm.prg.sourceOffset(dbg.vm.pc)).Line
 }
 
 func (dbg *Debugger) Filename() string {
-	currentFilename := dbg.vm.prg.src.Position(dbg.vm.prg.sourceOffset(dbg.vm.pc)).Filename
-	return currentFilename
+	return dbg.vm.prg.src.Position(dbg.vm.prg.sourceOffset(dbg.vm.pc)).Filename
 }
 
 func (dbg *Debugger) updateCurrentLine() {

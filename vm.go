@@ -430,16 +430,13 @@ func (vm *vm) debug() {
 			break
 		}
 
-		if vm.debugger != nil && vm.debugger.isBreakpoint() {
-			lastLine := vm.debugger.Line()
+		if vm.debugger != nil && vm.debugger.notActive && vm.debugger.isBreakpoint() {
+			// lastLine := vm.debugger.Line()
 			vm.debugger.updateCurrentLine()
-			if vm.debugger.lastDebuggerCommand() != "n" {
-				// vm.debugger.REPL(dbg, false)
-				// TODO: wait for command
-				// cmd = <-vm.debugger.input
-			}
+			vm.debugger.activate(BreakpointActivation)
+
 			vm.prg.code[vm.pc].exec(vm)
-			vm.debugger.updateLastLine(lastLine)
+			// vm.debugger.updateLastLine(lastLine)
 		} else {
 			vm.prg.code[vm.pc].exec(vm)
 		}
@@ -1282,11 +1279,8 @@ var debugger _debugger
 
 func (_debugger) exec(vm *vm) {
 	vm.pc++
-	if vm.debugMode && (vm.debugger == nil || vm.debugger.notActive) {
-		vm.debugger = NewDebugger(vm)
-		vm.debugCh <- vm.debugger
-		vm.debugger.wait()
-		// vm.debugger = nil // can't do that because of breakpoints
+	if vm.debugMode && vm.debugger.notActive { // this jumps over debugger statements
+		vm.debugger.activate(DebuggerStatementActivation)
 	}
 }
 
