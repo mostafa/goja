@@ -168,10 +168,10 @@ func (dbg *Debugger) Print(varName string) (string, error) {
 
 func (dbg *Debugger) List() ([]string, error) {
 	// TODO probably better to get only some of the lines, but fine for now
-	return StringToLines(dbg.vm.prg.src.Source())
+	return stringToLines(dbg.vm.prg.src.Source())
 }
 
-func StringToLines(s string) (lines []string, err error) {
+func stringToLines(s string) (lines []string, err error) {
 	scanner := bufio.NewScanner(strings.NewReader(s))
 	for scanner.Scan() {
 		lines = append(lines, scanner.Text())
