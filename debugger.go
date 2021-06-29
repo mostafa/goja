@@ -108,47 +108,6 @@ func (dbg *Debugger) Breakpoints() ([]Breakpoint, error) {
 }
 
 func (dbg *Debugger) Next() Result {
-	cmd := NextCommand{}
-	return cmd.execute(dbg)
-}
-
-func (dbg *Debugger) Continue() Result {
-	cmd := ContinueCommand{}
-	return cmd.execute(dbg)
-}
-
-func (dbg *Debugger) StepIn() Result {
-	cmd := StepInCommand{}
-	return cmd.execute(dbg)
-}
-
-func (dbg *Debugger) StepOut() Result {
-	cmd := StepOutCommand{}
-	return cmd.execute(dbg)
-}
-
-func (dbg *Debugger) Exec(expr string) Result {
-	cmd := ExecCommand{expression: expr}
-	return cmd.execute(dbg)
-}
-
-func (dbg *Debugger) Print(varName string) Result {
-	cmd := PrintCommand{varName: varName}
-	return cmd.execute(dbg)
-}
-
-func (dbg *Debugger) List() Result {
-	cmd := ListCommand{}
-	return cmd.execute(dbg)
-}
-
-type Command interface {
-	execute() (interface{}, error)
-}
-
-type NextCommand struct{}
-
-func (*NextCommand) execute(dbg *Debugger) Result {
 	// TODO: implement proper error propagation
 	lastLine := dbg.Line()
 	dbg.updateCurrentLine()
@@ -168,9 +127,7 @@ func (*NextCommand) execute(dbg *Debugger) Result {
 	return Result{Value: nil, Err: nil}
 }
 
-type ContinueCommand struct{}
-
-func (*ContinueCommand) execute(dbg *Debugger) Result {
+func (dbg *Debugger) Continue() Result {
 	// TODO: implement proper error propagation
 	lastLine := dbg.Line()
 	dbg.updateCurrentLine()
@@ -189,42 +146,22 @@ func (*ContinueCommand) execute(dbg *Debugger) Result {
 	return Result{Value: nil, Err: nil}
 }
 
-type StepInCommand struct{}
-
-func (*StepInCommand) execute(dbg *Debugger) Result {
-	return Result{Value: nil, Err: errors.New("not implemented yet")}
-}
-
-type StepOutCommand struct{}
-
-func (*StepOutCommand) execute(dbg *Debugger) Result {
-	return Result{Value: nil, Err: errors.New("not implemented yet")}
-}
-
-type ExecCommand struct {
-	expression string
-}
-
-func (e *ExecCommand) execute(dbg *Debugger) Result {
-	if e.expression == "" {
+func (dbg *Debugger) Exec(expr string) Result {
+	if expr == "" {
 		return Result{Value: nil, Err: errors.New("nothing to execute")}
 	}
-	val, err := dbg.eval(e.expression)
+	val, err := dbg.eval(expr)
 
 	lastLine := dbg.Line()
 	dbg.updateLastLine(lastLine)
 	return Result{Value: val, Err: err}
 }
 
-type PrintCommand struct {
-	varName string
-}
-
-func (p *PrintCommand) execute(dbg *Debugger) Result {
-	if p.varName == "" {
+func (dbg *Debugger) Print(varName string) Result {
+	if varName == "" {
 		return Result{Value: "", Err: errors.New("please specify variable name")}
 	}
-	val, err := dbg.getValue(p.varName)
+	val, err := dbg.getValue(varName)
 
 	if val == Undefined() {
 		return Result{Value: fmt.Sprint(dbg.vm.prg.values), Err: err}
@@ -234,18 +171,11 @@ func (p *PrintCommand) execute(dbg *Debugger) Result {
 	}
 }
 
-type ListCommand struct{}
-
-func (*ListCommand) execute(dbg *Debugger) Result {
+func (dbg *Debugger) List() Result {
 	// TODO probably better to get only some of the lines, but fine for now
 	val, err := StringToLines(dbg.vm.prg.src.Source())
 	return Result{Value: val, Err: err}
 }
-
-type (
-	EmptyCommand   struct{}
-	NewLineCommand struct{}
-)
 
 func StringToLines(s string) (lines []string, err error) {
 	scanner := bufio.NewScanner(strings.NewReader(s))
