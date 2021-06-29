@@ -339,7 +339,7 @@ func (dbg *Debugger) isSafeToRun() bool {
 	return dbg.vm.pc < len(dbg.vm.prg.code)
 }
 
-func (dbg *Debugger) eval(expr string) (Value, error) {
+func (dbg *Debugger) eval(expr string) (v Value, err error) {
 	prg, err := parser.ParseFile(nil, "<eval>", expr, 0)
 	if err != nil {
 		return nil, &CompilerSyntaxError{
@@ -380,6 +380,9 @@ func (dbg *Debugger) eval(expr string) (Value, error) {
 				err = errors.New("cannot recover from exception")
 			}
 		}
+		dbg.vm.popCtx()
+		dbg.vm.halt = false
+		dbg.vm.sp -= 1
 	}()
 
 	dbg.vm.pushCtx()
@@ -390,11 +393,8 @@ func (dbg *Debugger) eval(expr string) (Value, error) {
 	dbg.vm.sb = dbg.vm.sp
 	dbg.vm.push(this)
 	dbg.vm.run()
-	retval := dbg.vm.result
-	dbg.vm.popCtx()
-	dbg.vm.halt = false
-	dbg.vm.sp -= 1
-	return retval, err
+	v = dbg.vm.result
+	return v, err
 }
 
 func (dbg *Debugger) IsBreakOnStart() bool {
