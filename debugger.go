@@ -353,11 +353,11 @@ func (dbg *Debugger) eval(expr string) (v Value, err error) {
 	defer func() {
 		if x := recover(); x != nil {
 			c.p = nil
-			switch x1 := x.(type) {
+			switch ex := x.(type) {
 			case *CompilerSyntaxError:
-				err = x1
+				err = ex
 			default:
-				err = errors.New("unknown error occurred")
+				err = fmt.Errorf("cannot recover from exception %s", ex)
 			}
 		}
 	}()
@@ -376,7 +376,7 @@ func (dbg *Debugger) eval(expr string) (v Value, err error) {
 			if ex, ok := x.(*uncatchableException); ok {
 				err = ex.err
 			} else {
-				err = errors.New("cannot recover from exception")
+				err = fmt.Errorf("cannot recover from exception %s", x)
 			}
 		}
 		dbg.vm.popCtx()
@@ -400,11 +400,18 @@ func (dbg *Debugger) IsBreakOnStart() bool {
 	return dbg.vm.pc < 3 && dbg.vm.prg.code[2] == debugger
 }
 
-func (dbg *Debugger) getValue(varName string) (Value, error) {
+func (dbg *Debugger) getValue(varName string) (val Value, err error) {
 	name := unistring.String(varName)
-	var val Value
-	var err error
 
+	defer func() {
+		if x := recover(); x != nil { // TODO better catch exception
+			if ex, ok := x.(*uncatchableException); ok {
+				err = ex.err
+			} else {
+				err = fmt.Errorf("cannot recover from exception %s", x)
+			}
+		}
+	}()
 	// First try
 	for stash := dbg.vm.stash; stash != nil; stash = stash.outer {
 		if v, exists := stash.getByName(name); exists {
