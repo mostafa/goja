@@ -43,9 +43,11 @@ const ( // TODO constants enum
 )
 
 func (dbg *Debugger) activate(s string) {
+	dbg.notActive = false
 	ch := <-dbg.activationCh // get channel from waiter
 	ch <- s                  // send what activated it
 	<-ch                     // wait for deactivation
+	dbg.notActive = true
 }
 
 // WaitToActivate  returns what activated debugger and a function to deactivate it resume normal execution/continue
@@ -214,9 +216,6 @@ func (e *ExecCommand) execute(dbg *Debugger) Result {
 	dbg.debuggerExec = false
 
 	lastLine := dbg.Line()
-	// TODO: Refactor this (get rid of calling REPL)
-	// dbg.REPL(dbg, false)
-	// TODO: wait for command
 	dbg.updateLastLine(lastLine)
 	return Result{Value: val, Err: err}
 }

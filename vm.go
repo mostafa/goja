@@ -157,7 +157,7 @@ type vm struct {
 	interruptLock sync.Mutex
 
 	debugger  *Debugger
-	debugMode bool
+	debugMode bool // TODO drop this as we can just check debugger is nil or not
 	debugCh   chan *Debugger
 }
 
