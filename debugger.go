@@ -20,11 +20,6 @@ type Debugger struct {
 	active       bool
 }
 
-type Result struct {
-	Value interface{}
-	Err   error
-}
-
 func NewDebugger(vm *vm) *Debugger {
 	dbg := &Debugger{
 		vm:           vm,
@@ -107,7 +102,7 @@ func (dbg *Debugger) Breakpoints() ([]Breakpoint, error) {
 	return dbg.breakpoints, nil
 }
 
-func (dbg *Debugger) Next() Result {
+func (dbg *Debugger) Next() error {
 	// TODO: implement proper error propagation
 	lastLine := dbg.Line()
 	dbg.updateCurrentLine()
@@ -124,10 +119,10 @@ func (dbg *Debugger) Next() Result {
 		dbg.vm.prg.code[dbg.vm.pc].exec(dbg.vm)
 	}
 	dbg.updateLastLine(lastLine)
-	return Result{Value: nil, Err: nil}
+	return nil
 }
 
-func (dbg *Debugger) Continue() Result {
+func (dbg *Debugger) Continue() error {
 	// TODO: implement proper error propagation
 	lastLine := dbg.Line()
 	dbg.updateCurrentLine()
@@ -137,44 +132,43 @@ func (dbg *Debugger) Continue() Result {
 			// TODO: wait for command
 			dbg.updateCurrentLine()
 			dbg.updateLastLine(lastLine)
-			return Result{Value: nil, Err: nil}
+			return nil
 		}
 		dbg.vm.prg.code[dbg.vm.pc].exec(dbg.vm)
 		dbg.updateCurrentLine()
 	}
 	dbg.updateLastLine(lastLine)
-	return Result{Value: nil, Err: nil}
+	return nil
 }
 
-func (dbg *Debugger) Exec(expr string) Result {
+func (dbg *Debugger) Exec(expr string) (Value, error) {
 	if expr == "" {
-		return Result{Value: nil, Err: errors.New("nothing to execute")}
+		return nil, errors.New("nothing to execute")
 	}
 	val, err := dbg.eval(expr)
 
 	lastLine := dbg.Line()
 	dbg.updateLastLine(lastLine)
-	return Result{Value: val, Err: err}
+	return val, err
 }
 
-func (dbg *Debugger) Print(varName string) Result {
+func (dbg *Debugger) Print(varName string) (string, error) {
 	if varName == "" {
-		return Result{Value: "", Err: errors.New("please specify variable name")}
+		return "", errors.New("please specify variable name")
 	}
 	val, err := dbg.getValue(varName)
 
 	if val == Undefined() {
-		return Result{Value: fmt.Sprint(dbg.vm.prg.values), Err: err}
+		return fmt.Sprint(dbg.vm.prg.values), err
 	} else {
 		// FIXME: val.ToString() causes debugger to exit abruptly
-		return Result{Value: fmt.Sprint(val), Err: err}
+		return fmt.Sprint(val), err
 	}
 }
 
-func (dbg *Debugger) List() Result {
+func (dbg *Debugger) List() ([]string, error) {
 	// TODO probably better to get only some of the lines, but fine for now
-	val, err := StringToLines(dbg.vm.prg.src.Source())
-	return Result{Value: val, Err: err}
+	return StringToLines(dbg.vm.prg.src.Source())
 }
 
 func StringToLines(s string) (lines []string, err error) {
