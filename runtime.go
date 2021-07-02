@@ -1108,6 +1108,11 @@ func CompileAST(prg *js_ast.Program, strict bool) (*Program, error) {
 	return compileAST(prg, strict, false, true, false)
 }
 
+// CompileASTDebug is like CompileAST but enables debug mode when compiling
+func CompileASTDebug(prg *js_ast.Program, strict bool) (*Program, error) {
+	return compileAST(prg, strict, false, true, true)
+}
+
 // MustCompile is like Compile but panics if the code cannot be compiled.
 // It simplifies safe initialization of global variables holding compiled JavaScript code.
 func MustCompile(name, src string, strict bool) *Program {
