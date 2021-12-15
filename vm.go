@@ -463,7 +463,9 @@ func (vm *vm) debug() {
 				vm.debugger.lastBreakpoint.filename = ""
 				vm.debugger.lastBreakpoint.line = -1
 			}
-			vm.debugger.lastBreakpoint.stackDepth = vm.debugger.callStackDepth()
+			if vm.debugger != nil {
+				vm.debugger.lastBreakpoint.stackDepth = vm.debugger.callStackDepth()
+			}
 		}
 
 		vm.prg.code[vm.pc].exec(vm)
