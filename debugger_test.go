@@ -178,7 +178,7 @@ func TestDebuggerContinue(t *testing.T) {
 	<-ch // wait for the debugger
 }
 
-func TestDebuggerSkipOutterNestedBreakpoint(t *testing.T) {
+func TestDebuggerSkipOuterNestedBreakpoint(t *testing.T) {
 	const SCRIPT = `var a = false;
 	function test() {
 		a = true;
