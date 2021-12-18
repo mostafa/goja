@@ -188,8 +188,8 @@ function fact(num) {
 }
 fact(3)
 function test() {
-  a = true;
-  return a;
+  let b = true;
+  return b;
 }
 test();
 test();
