@@ -540,7 +540,7 @@ func testScript1WithRuntime(script string, expectedResult Value, t *testing.T, r
 	}
 
 	c := newCompiler(true) // TODO have it as a parameter?
-	c.compile(prg, false, false, true)
+	c.compile(prg, false, true, nil)
 
 	vm := r.vm
 	vm.prg = c.p

@@ -48,6 +48,8 @@ const (
 
 var globalBuiltinKeys = map[string]bool{"Object": true, "Function": true, "Array": true, "String": true, "globalThis": true, "NaN": true, "undefined": true, "Infinity": true, "isNaN": true, "parseInt": true, "parseFloat": true, "isFinite": true, "decodeURI": true, "decodeURIComponent": true, "encodeURI": true, "encodeURIComponent": true, "escape": true, "unescape": true, "Number": true, "RegExp": true, "Date": true, "Boolean": true, "Proxy": true, "Reflect": true, "Error": true, "AggregateError": true, "TypeError": true, "ReferenceError": true, "SyntaxError": true, "RangeError": true, "EvalError": true, "URIError": true, "GoError": true, "eval": true, "Math": true, "JSON": true, "ArrayBuffer": true, "DataView": true, "Uint8Array": true, "Uint8ClampedArray": true, "Int8Array": true, "Uint16Array": true, "Int16Array": true, "Uint32Array": true, "Int32Array": true, "Float32Array": true, "Float64Array": true, "Symbol": true, "WeakSet": true, "WeakMap": true, "Map": true, "Set": true, "Promise": true}
 
+var localBuiltinKeys = map[string]bool{thisBindingName: true, "arguments": true}
+
 func (dbg *Debugger) activate(reason ActivationReason) {
 	dbg.active = true
 	ch := <-dbg.activationCh // get channel from waiter
@@ -286,7 +288,7 @@ func (dbg *Debugger) eval(expr string) (v Value, err error) {
 		this = dbg.vm.r.globalObject
 	}
 
-	c.compile(prg, false, true, this == dbg.vm.r.globalObject)
+	c.compile(prg, false, this == dbg.vm.r.globalObject, dbg.vm)
 
 	defer func() {
 		if x := recover(); x != nil {
@@ -367,7 +369,11 @@ func (dbg *Debugger) GetLocalVariables() (map[string]Value, error) {
 
 	locals := make(map[string]Value)
 	for name := range dbg.vm.stash.names {
-		val, _ := dbg.getValue(name.String())
+		nameStr := name.String()
+		if localBuiltinKeys[nameStr] {
+			continue
+		}
+		val, _ := dbg.getValue(nameStr)
 		if val == nil {
 			locals[name.String()] = Undefined()
 		}

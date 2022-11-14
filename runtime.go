@@ -14,8 +14,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/dop251/goja/file"
-
 	"golang.org/x/text/collate"
 
 	js_ast "github.com/dop251/goja/ast"
@@ -1291,19 +1289,19 @@ func (r *Runtime) AttachDebugger() *Debugger {
 // method. This representation is not linked to a runtime in any way and can be run in multiple runtimes (possibly
 // at the same time).
 func Compile(name, src string, strict bool) (*Program, error) {
-	return compile(name, src, strict, false, true, false)
+	return compile(name, src, strict, true, nil, false)
 }
 
 // CompileAST creates an internal representation of the JavaScript code that can be later run using the Runtime.RunProgram()
 // method. This representation is not linked to a runtime in any way and can be run in multiple runtimes (possibly
 // at the same time).
 func CompileAST(prg *js_ast.Program, strict bool) (*Program, error) {
-	return compileAST(prg, strict, false, true, false)
+	return compileAST(prg, strict, true, nil, false)
 }
 
 // CompileASTDebug is like CompileAST but enables debug mode when compiling
 func CompileASTDebug(prg *js_ast.Program, strict bool) (*Program, error) {
-	return compileAST(prg, strict, false, true, true)
+	return compileAST(prg, strict, true, nil, true)
 }
 
 // MustCompile is like Compile but panics if the code cannot be compiled.
@@ -1345,11 +1343,11 @@ func compile(name, src string, strict, inGlobal bool, evalVm *vm, debug bool, pa
 		return
 	}
 
-	return compileAST(prg, strict, eval, inGlobal, debug)
+	return compileAST(prg, strict, inGlobal, evalVm, debug)
 }
 
 func compileAST(prg *js_ast.Program, strict, inGlobal bool, evalVm *vm, debug bool) (p *Program, err error) {
-	c := newCompiler()
+	c := newCompiler(debug)
 
 	defer func() {
 		if x := recover(); x != nil {
@@ -1392,7 +1390,7 @@ func (r *Runtime) RunString(str string) (Value, error) {
 
 // RunScript executes the given string in the global context.
 func (r *Runtime) RunScript(name, src string) (Value, error) {
-	p, err := r.compile(name, src, false, false, true)
+	p, err := r.compile(name, src, false, true, nil)
 	if err != nil {
 		return nil, err
 	}
